@@ -1,0 +1,14 @@
+[project]
+name = "hse-foundations"
+version = "0.1.0"
+description = "Honors Software Engineering 2026-27 — student workspace, A05 through A11b"
+requires-python = ">=3.12"
+dependencies = [
+    "jupyterlab>=4.0",
+]
+
+# NumPy is deliberately not here. A05 has you add it yourself, which is also where
+# you find out that `uv add` writes to this file and `pip install` does not.
+
+[tool.uv]
+package = false          # this is a workspace, not a library to install

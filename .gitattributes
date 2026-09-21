@@ -1,0 +1,4 @@
+# Notebook output never reaches a commit. setup.sh installs the filter that does it;
+# without that filter installed these files are committed unchanged, which is why
+# setup.sh asks you to verify it took. A11 is the first assignment here with notebooks.
+*.ipynb filter=nbstrip
