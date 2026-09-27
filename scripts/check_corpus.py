@@ -120,7 +120,9 @@ def check(path):
         rec("boilerplate stripped", FAIL, f"found {hits[:3]} in the first or last 2% of the file",
             "This is a Project Gutenberg download with its license wrapper still on. In fetch_corpus.sh, keep only "
             "the text between the '*** START OF' and '*** END OF' lines (the awk rule in the corpus guide). "
-            "Only use that rule on a Gutenberg file: on anything else it keeps nothing.")
+            "Only use that rule on a Gutenberg file: on anything else it keeps nothing. If the awk rule is already "
+            "there and this still fails, an older Gutenberg file carries a line like 'End of the Project Gutenberg "
+            "EBook of ...' INSIDE the markers: add  | grep -v \"Project Gutenberg\"  after the awk and re-run.")
     elif soft:
         where = head if any(m in head for m in soft) else tail
         line = next((l.strip() for l in where.split("\n") if any(m in l for m in soft)), "")

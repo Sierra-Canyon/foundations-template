@@ -35,7 +35,7 @@ Fetch and strip, the same way every time. The loop takes as many IDs as you need
 set -e
 mkdir -p data
 : > data/corpus.txt
-for ID in 1727 6130; do     # 1727 = the Odyssey, 6130 = the Iliad (both Butler). Put your own IDs here.
+for ID in 1727 2199; do     # 1727 = the Odyssey, 2199 = the Iliad (both Butler). Put your own IDs here.
   curl -fsSL --retry 4 --retry-delay 5 --retry-all-errors "https://www.gutenberg.org/cache/epub/$ID/pg$ID.txt" -o data/raw.txt
   awk '/\*\*\* START OF/{flag=1; next} /\*\*\* END OF/{flag=0} flag' data/raw.txt >> data/corpus.txt
   printf "\n\n" >> data/corpus.txt
@@ -48,7 +48,7 @@ wc -c data/corpus.txt
 
 | Interest | Books (IDs to confirm on the site) | Rough size |
 |---|---|---|
-| **Epic / myth** | The Odyssey, Butler (1727) + The Iliad, Butler (6130): the worked example · Beowulf (16328) · Bulfinch's Mythology (4928) | 0.7 MB each; Odyssey + Iliad ≈ 1.5 MB |
+| **Epic / myth** | The Odyssey, Butler (1727) + The Iliad, Butler (2199): the worked example · Beowulf (16328) · Bulfinch's Mythology (4928) | 0.7 MB each; Odyssey + Iliad ≈ 1.5 MB |
 | **Novels** | Moby Dick (2701, 1.2 MB) · War and Peace (2600, 3.2 MB) · Pride and Prejudice (1342, 0.7 MB) · Dracula (345, 0.9 MB) · Frankenstein (84, 0.4 MB) · The Adventures of Sherlock Holmes (1661, 0.6 MB) + The Memoirs (834) + The Return (108) | one novel is usually 0.5–1.2 MB |
 | **Complete Shakespeare** | 100 | 5.5 MB; cut to the tragedies if it is slow |
 | **History — ancient** | Herodotus, *The Histories* (2707 vol. 1, 2456 vol. 2) · Thucydides, *Peloponnesian War* (7142) · Plutarch's *Lives* (674) · Gibbon, *Decline and Fall* vol. 1 (25717) | 0.8–1.5 MB each |

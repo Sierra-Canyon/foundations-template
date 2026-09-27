@@ -1,7 +1,9 @@
 # Your corpus. Real text, often large, and not something to push.
 data/*
+# ...except the two small files A05b commits: where the corpus came from, and (Wikipedia) the article list.
 !data/README.md
-*.txt
+!data/SOURCE.md
+!data/titles.txt
 
 # Saved arrays. Regenerate them, do not commit them.
 *.npy
