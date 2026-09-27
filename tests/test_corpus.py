@@ -40,19 +40,9 @@ def test_is_text_not_binary(text):
     assert printable >= cc.MIN_PRINTABLE, f"only {printable:.3%} printable"
 
 
-def test_big_enough_for_the_fall(text):
-    """A06 embeds it; A13–A19 search it."""
-    assert len(text) >= cc.MIN_CHARS_FAIL, f"{len(text):,} chars; need {cc.MIN_CHARS_FAIL:,}"
-
-
-@pytest.mark.xfail(strict=False, reason="Track B's spring GPT wants ≥ 1 MB; a warning in the fall, not a failure")
-def test_big_enough_for_a_gpt(text):
-    assert len(text) >= cc.MIN_CHARS_WARN
-
-
-def test_not_empty(text):
-    """A file with nothing in it passes every regex and fails every assignment."""
-    assert len(text) > 0, "data/corpus.txt is empty; the fetch or the stripping rule produced nothing"
+def test_big_enough(text):
+    """A06 embeds it; A13-A19 search it; Track B trains a character-level GPT on it in the spring."""
+    assert len(text) >= cc.MIN_CHARS, f"{len(text):,} chars; need {cc.MIN_CHARS:,} (add a second book/season/category in fetch_corpus.sh)"
 
 
 def test_no_license_boilerplate(text):

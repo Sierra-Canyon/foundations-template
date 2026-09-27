@@ -7,7 +7,7 @@ One text file, `data/corpus.txt`, carries you from A05b to the symposium. This i
 
 | Property | Why | Number |
 |---|---|---|
-| Big | A search has something to find; a spring GPT produces readable text | ≥ 1,000,000 characters (warns below; fails under 200,000). 1–5 MB is the sweet spot |
+| Big | A search has something to find; a spring GPT produces readable text | ≥ 1,000,000 characters (fails below). 1–5 MB is the sweet spot |
 | Plain UTF-8 text | The chunker and tokenizer read text, not PDF | `file data/corpus.txt` says UTF-8 or ASCII |
 | Paragraphs separated by blank lines | A06 chunks on `\n\n` | ≥ 300 chunks of ≥ 200 characters |
 | No license wrapper | Otherwise "Gutenberg" is a top hit all year | the `awk` rule in `fetch_corpus.sh` |
@@ -15,7 +15,7 @@ One text file, `data/corpus.txt`, carries you from A05b to the symposium. This i
 | Legal, and shareable in excerpts | You paste results into committed files all year | public domain, CC BY / CC BY-SA, or your own |
 | Re-fetchable | I re-run your numbers | `scripts/fetch_corpus.sh` reproduces the same sha256 |
 
-**Size guide.** A novel is 400,000–1,200,000 characters. The Odyssey (Butler) is about 700,000, which is why the examples say "add the Iliad if you go Track B." The complete Shakespeare is 5.5 MB, which is plenty and slow. Two or three related books glued together is usually the right answer.
+**Size guide.** A novel is 400,000–1,200,000 characters. The Odyssey (Butler) is about 700,000 on its own, under the floor, which is why the worked example glues the Iliad onto it: the pair is about 1.5 MB. The complete Shakespeare is 5.5 MB, which is plenty and slow. Two or three related books glued together is usually the right answer, and every recipe below is written so that adding one more is one more line.
 
 **Rule on private text.** Your own notes, chats and journals are allowed and are the most interesting corpora in the room. `data/` is git-ignored, but your search results, your model's outputs and your golden set are not: excerpts land in committed files, PR bodies and reflection answers. Scrub names, or pick something else.
 
@@ -27,23 +27,28 @@ One text file, `data/corpus.txt`, carries you from A05b to the symposium. This i
 
 The plain-text URL pattern is `https://www.gutenberg.org/cache/epub/<ID>/pg<ID>.txt`. Find the ID by searching [gutenberg.org](https://www.gutenberg.org); it is the number in the book's URL. **Verify the ID by reading the first 40 lines of what you downloaded**, then let your own test in `tests/test_corpus.py` guard it forever.
 
-Fetch and strip, the same way every time:
+Fetch and strip, the same way every time. The loop takes as many IDs as you need; the worked example is the Odyssey plus the Iliad:
 
 ```bash
 #!/bin/bash
+# scripts/fetch_corpus.sh — one or more Project Gutenberg books, license wrapper stripped, glued in order
 set -e
 mkdir -p data
-ID=1727   # the Odyssey, Butler translation
-curl -sSL "https://www.gutenberg.org/cache/epub/$ID/pg$ID.txt" -o data/raw.txt
-awk '/\*\*\* START OF/{flag=1; next} /\*\*\* END OF/{flag=0} flag' data/raw.txt > data/corpus.txt
+: > data/corpus.txt
+for ID in 1727 6130; do     # 1727 = the Odyssey, 6130 = the Iliad (both Butler). Put your own IDs here.
+  curl -fsSL --retry 4 --retry-delay 5 --retry-all-errors "https://www.gutenberg.org/cache/epub/$ID/pg$ID.txt" -o data/raw.txt
+  awk '/\*\*\* START OF/{flag=1; next} /\*\*\* END OF/{flag=0} flag' data/raw.txt >> data/corpus.txt
+  printf "\n\n" >> data/corpus.txt
+done
 rm data/raw.txt
+wc -c data/corpus.txt
 ```
 
-**The `awk` rule is for Gutenberg files only.** It keeps what sits between the two marker lines; run it on a file with no markers (Wikipedia, RFCs, docs) and it keeps nothing, and the checker will tell you the corpus is empty. To glue two books, fetch each to `data/raw1.txt`, `data/raw2.txt`, apply the `awk` to each, and `cat` them into `corpus.txt`. Older files carry a "Produced by …" credit *after* the START marker; if the checker flags it, add `sed '1,/^$/d'` to drop the first paragraph.
+**The `awk` rule is for Gutenberg files only.** It keeps what sits between the two marker lines; run it on a file with no markers (Wikipedia, RFCs, docs) and it keeps nothing, and the checker will tell you the corpus is empty. Older files carry a "Produced by …" credit *after* the START marker; the checker warns and quotes the line, and the fix is `sed '1,/^$/d'` between the `awk` and the `>>`, which drops that first paragraph of each book.
 
 | Interest | Books (IDs to confirm on the site) | Rough size |
 |---|---|---|
-| **Epic / myth** | The Odyssey, Butler (1727) · The Iliad, Butler (6130) · Beowulf (16328) · Bulfinch's Mythology (4928) | 0.7 MB each; Odyssey + Iliad ≈ 1.6 MB |
+| **Epic / myth** | The Odyssey, Butler (1727) + The Iliad, Butler (6130): the worked example · Beowulf (16328) · Bulfinch's Mythology (4928) | 0.7 MB each; Odyssey + Iliad ≈ 1.5 MB |
 | **Novels** | Moby Dick (2701, 1.2 MB) · War and Peace (2600, 3.2 MB) · Pride and Prejudice (1342, 0.7 MB) · Dracula (345, 0.9 MB) · Frankenstein (84, 0.4 MB) · The Adventures of Sherlock Holmes (1661, 0.6 MB) + The Memoirs (834) + The Return (108) | one novel is usually 0.5–1.2 MB |
 | **Complete Shakespeare** | 100 | 5.5 MB; cut to the tragedies if it is slow |
 | **History — ancient** | Herodotus, *The Histories* (2707 vol. 1, 2456 vol. 2) · Thucydides, *Peloponnesian War* (7142) · Plutarch's *Lives* (674) · Gibbon, *Decline and Fall* vol. 1 (25717) | 0.8–1.5 MB each |
@@ -140,9 +145,11 @@ PAGE="$1"; KEEP="$2"    # KEEP: keep only titles containing these words (plain t
 [ -z "$PAGE" ] && { echo "usage: bash scripts/make_titles.sh 'Category:Name' | 'List of …' ['words the titles contain']" >&2; exit 1; }
 UA="hse-corpus/1.0 (Sierra Canyon HSE student project; contact: YOUR_EMAIL_HERE)"
 API="https://en.wikipedia.org/w/api.php"
-CURL="curl -fsS --max-time 30 --retry 4 --retry-delay 3 --retry-all-errors -G $API -H User-Agent:$UA"
+api() {   # one API call; the arguments are the --data-urlencode pairs
+  curl -fsS --max-time 30 --retry 4 --retry-delay 3 --retry-all-errors -G "$API" -H "User-Agent: $UA" "$@"
+}
 if [ "$PAGE" = "--categories-of" ]; then       # which categories does this article sit in?
-  $CURL --data-urlencode "action=query" --data-urlencode "prop=categories" --data-urlencode "titles=$2" \
+  api --data-urlencode "action=query" --data-urlencode "prop=categories" --data-urlencode "titles=$2" \
     --data-urlencode "clshow=!hidden" --data-urlencode "cllimit=50" --data-urlencode "format=json" --data-urlencode "formatversion=2" \
   | python3 -c 'import json,sys; [print(c["title"]) for c in json.load(sys.stdin)["query"]["pages"][0].get("categories",[])]'
   exit 0
@@ -153,7 +160,7 @@ case "$PAGE" in
   Category:*)
     cont=""
     while :; do
-      body=$($CURL --data-urlencode "action=query" --data-urlencode "list=categorymembers" \
+      body=$(api --data-urlencode "action=query" --data-urlencode "list=categorymembers" \
         --data-urlencode "cmtitle=$PAGE" --data-urlencode "cmtype=page" --data-urlencode "cmnamespace=0" \
         --data-urlencode "cmlimit=500" --data-urlencode "format=json" --data-urlencode "formatversion=2" \
         ${cont:+--data-urlencode "cmcontinue=$cont"})
@@ -163,7 +170,7 @@ case "$PAGE" in
     done ;;
   *)
     # every article the list page links to, in page order, keeping only titles that contain $KEEP
-    $CURL --data-urlencode "action=parse" --data-urlencode "page=$PAGE" --data-urlencode "prop=links" \
+    api --data-urlencode "action=parse" --data-urlencode "page=$PAGE" --data-urlencode "prop=links" \
       --data-urlencode "format=json" --data-urlencode "formatversion=2" \
     | python3 -c 'import json,sys
 keep = sys.argv[1].lower()
@@ -176,6 +183,12 @@ esac
 wc -l data/titles.txt
 if [ ! -s data/titles.txt ]; then
   echo "Nothing came back. Check the exact name: for a category, run  bash scripts/make_titles.sh --categories-of \"<an article in it>\"  and copy one; for a list page, copy the title from the article URL." >&2
+  case "$PAGE" in Category:*)
+    echo "If the name is right, the articles are one level down. This category's subcategories are:" >&2
+    api --data-urlencode "action=query" --data-urlencode "list=categorymembers" --data-urlencode "cmtitle=$PAGE" \
+      --data-urlencode "cmtype=subcat" --data-urlencode "cmlimit=50" --data-urlencode "format=json" --data-urlencode "formatversion=2" \
+    | python3 -c 'import json,sys; [print("  " + m["title"]) for m in json.load(sys.stdin)["query"]["categorymembers"]]' >&2 ;;
+  esac
   exit 1
 fi
 ```
@@ -260,11 +273,15 @@ set -e
 CAT="cs.LG"                      # astro-ph, q-bio, physics.pop-ph, math.HO, cs.CL …
 mkdir -p data; : > data/corpus.txt
 for start in 0 200 400 600 800 1000 1200 1400 1600 1800; do
-  for attempt in 1 2 3; do
-    curl -fsS --max-time 60 "https://export.arxiv.org/api/query?search_query=cat:$CAT&start=$start&max_results=200&sortBy=submittedDate&sortOrder=descending" -o data/raw.xml
-    grep -q "<entry>" data/raw.xml && break        # arXiv sometimes returns an empty feed; ask again
-    sleep 5
+  ok=0
+  for attempt in 1 2 3 4 5; do
+    # -f turns an HTTP error (429 = "too many requests") into a failed command instead of a saved error page
+    if curl -fsS --max-time 60 "https://export.arxiv.org/api/query?search_query=cat:$CAT&start=$start&max_results=200&sortBy=submittedDate&sortOrder=descending" -o data/raw.xml \
+       && grep -q "<entry>" data/raw.xml; then ok=1; break; fi   # an empty feed happens too; ask again
+    echo "offset $start: attempt $attempt failed; waiting $((attempt * 10))s" >&2
+    sleep $((attempt * 10))
   done
+  [ "$ok" = 1 ] || { echo "arXiv refused offset $start five times. Wait a few minutes and re-run." >&2; exit 1; }
   START=$start python3 - <<'PY'
 import re, html, os
 x = open("data/raw.xml", encoding="utf-8").read()
@@ -282,7 +299,7 @@ rm -f data/raw.xml
 wc -c data/corpus.txt
 ```
 
-Change `CAT` for another field. Ten requests of 200 with a pause between them, because one request of 2,000 comes back empty more often than not. About 2 MB.
+Change `CAT` for another field. Ten requests of 200 with a pause between them, because one request of 2,000 comes back empty more often than not, and arXiv answers `429` if you ask faster than about one request every three seconds, which the growing wait handles. About 2 MB.
 
 ---
 

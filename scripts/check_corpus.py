@@ -19,8 +19,8 @@ import sys
 PASS, WARN, FAIL = "PASS", "WARN", "FAIL"
 
 # ---- the thresholds, in one place, so a student can read them and argue with them
-MIN_CHARS_FAIL = 200_000      # below this nothing later in the year works
-MIN_CHARS_WARN = 1_000_000    # Track B trains a GPT on this file; 1 MB is the floor that produces readable text
+MIN_CHARS = 1_000_000         # Track B trains a GPT on this file; 1 MB is the floor that produces readable text.
+                              # Required from A05b on: one book is usually 0.4-0.8 MB, so most corpora are two.
 MAX_CHARS_WARN = 20_000_000   # above this every embedding run costs real money and every loop is slow
 CHUNK_MIN_CHARS = 200         # A06's minimum chunk length
 MIN_CHUNKS = 300              # A06 needs at least this many chunks of at least CHUNK_MIN_CHARS
@@ -101,14 +101,11 @@ def check(path):
             "('*** START OF' … '*** END OF') run on a file that has no such markers, such as a Wikipedia "
             "corpus, which then keeps nothing. Re-run scripts/fetch_corpus.sh, and only strip what your source actually has.")
         return results
-    if n < MIN_CHARS_FAIL:
+    if n < MIN_CHARS:
         rec("size", FAIL, f"{n:,} characters",
-            f"Under {MIN_CHARS_FAIL:,}. Add more of the same source (the sequel, the next volume, "
-            f"another season) until you pass 1,000,000.")
-    elif n < MIN_CHARS_WARN:
-        rec("size", WARN, f"{n:,} characters",
-            "Enough for the fall. Track B trains a character-level model on this file in the spring, "
-            "and under 1 MB the samples never get readable. Consider adding a second volume now.")
+            f"Under {MIN_CHARS:,}; you are {MIN_CHARS - n:,} short. Add more of the same source in the fetch "
+            f"script (the sequel, the next volume, another season or category) and run it again. One book "
+            f"is usually not enough; two related ones usually are.")
     elif n > MAX_CHARS_WARN:
         rec("size", WARN, f"{n:,} characters",
             "Big. Every embedding pass costs money and every loop takes a while. Cut to the part you care about.")
