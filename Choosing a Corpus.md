@@ -123,14 +123,15 @@ The simplest way to make a titles list is the category script below; the fallbac
 
 You do not have to type titles by hand. Wikipedia keeps sets of articles in two places, and either one can be turned into `data/titles.txt` by the script below.
 
-**A category.** Every article ends with a **Categories:** box. Open one article you know belongs (say [Super Bowl I](https://en.wikipedia.org/wiki/Super_Bowl_I)), scroll to the bottom, and click the category that names the *set* rather than the topic: a category of games, seasons, albums or missions, not of the sport or the artist. Its URL is `https://en.wikipedia.org/wiki/Category:<Name>`; the members are under **Pages in category**, and if what you want is inside a subcategory, click through to that one. Some to know: `Category:Super Bowl games` · `Category:NBA Finals` · `Category:FIFA World Cup tournaments` · `Category:World Series` · `Category:Summer Olympic Games` · `Category:Formula One seasons` · `Category:Apollo program missions` · `Category:Space Shuttle missions`.
+**A category.** Every article ends with a **Categories:** box. Open one article you know belongs (say [Super Bowl I](https://en.wikipedia.org/wiki/Super_Bowl_I)), scroll to the bottom, and click the category that names the *set* rather than the topic: a category of games, seasons, albums or missions, not of the sport or the artist. Its URL is `https://en.wikipedia.org/wiki/Category:<Name>`; the members are under **Pages in category**, and if what you want is inside a subcategory, click through to that one. Category names have to be exact, so do not type one from memory: `bash scripts/make_titles.sh --categories-of "Super Bowl I"` prints every category that article is in, and you copy the one that names the set.
 
 **A "List of …" page.** Search Wikipedia for *List of* plus your set: [List of Super Bowl champions](https://en.wikipedia.org/wiki/List_of_Super_Bowl_champions), *List of NBA champions*, *List of FIFA World Cup finals*, *List of Apollo missions*, *List of Nintendo Switch games*, *List of Studio Ghibli works*, *List of Marvel Cinematic Universe films*. The table on a list page links every member article, and a list page links to a lot else besides (teams, stadiums, players), so the script takes a second argument: words that every title you want contains. Look at the table first and find what the member titles share: `Super Bowl XLII`, `Super Bowl LIII` all contain `Super Bowl`; `2004 NBA Finals`, `2016 NBA Finals` all contain `NBA Finals`; `Apollo 11`, `Apollo 13` all contain `Apollo`. That shared piece is the filter. Leave it off to get every link on the page and delete the extras in your editor.
 
 ```bash
 #!/bin/bash
 # scripts/make_titles.sh — write data/titles.txt from a Wikipedia category or a "List of …" page
-#   bash scripts/make_titles.sh "Category:Super Bowl games"
+#   bash scripts/make_titles.sh --categories-of "Super Bowl I"      # prints the article's categories, to copy from
+#   bash scripts/make_titles.sh "Category:Super Bowl"
 #   bash scripts/make_titles.sh "List of Super Bowl champions" "Super Bowl"
 #   bash scripts/make_titles.sh "List of NBA champions" "NBA Finals"
 #   bash scripts/make_titles.sh "List of Apollo missions" "Apollo"
@@ -140,6 +141,12 @@ PAGE="$1"; KEEP="$2"    # KEEP: keep only titles containing these words (plain t
 UA="hse-corpus/1.0 (Sierra Canyon HSE student project; contact: YOUR_EMAIL_HERE)"
 API="https://en.wikipedia.org/w/api.php"
 CURL="curl -fsS --max-time 30 --retry 4 --retry-delay 3 --retry-all-errors -G $API -H User-Agent:$UA"
+if [ "$PAGE" = "--categories-of" ]; then       # which categories does this article sit in?
+  $CURL --data-urlencode "action=query" --data-urlencode "prop=categories" --data-urlencode "titles=$2" \
+    --data-urlencode "clshow=!hidden" --data-urlencode "cllimit=50" --data-urlencode "format=json" --data-urlencode "formatversion=2" \
+  | python3 -c 'import json,sys; [print(c["title"]) for c in json.load(sys.stdin)["query"]["pages"][0].get("categories",[])]'
+  exit 0
+fi
 mkdir -p data; : > data/titles.txt
 
 case "$PAGE" in
@@ -167,9 +174,13 @@ for l in json.load(sys.stdin)["parse"]["links"]:
         seen.add(t); print(t)' "$KEEP" >> data/titles.txt ;;
 esac
 wc -l data/titles.txt
+if [ ! -s data/titles.txt ]; then
+  echo "Nothing came back. Check the exact name: for a category, run  bash scripts/make_titles.sh --categories-of \"<an article in it>\"  and copy one; for a list page, copy the title from the article URL." >&2
+  exit 1
+fi
 ```
 
-For a category, `cmtype=page` and `cmnamespace=0` mean only articles come out, no subcategories, files or talk pages. For a list page, red links are dropped and the filter words do the rest; run it with no second argument once to see everything the page links to, then run it again with the words that the titles you want share. Capitalization does not matter. Either way, open `data/titles.txt` afterwards and delete what does not belong: a category often holds an overview article beside its members, and a list page's table can link the same article twice under different names. If the count is under about 40, run the script again for a second category or list and paste the two files together. A count of `0` means the name is spelled differently from the real page: copy it from the article URL.
+For a category, `cmtype=page` and `cmnamespace=0` mean only articles come out, no subcategories, files or talk pages. For a list page, red links are dropped and the filter words do the rest; run it with no second argument once to see everything the page links to, then run it again with the words that the titles you want share. Capitalization does not matter. Either way, open `data/titles.txt` afterwards and delete what does not belong: a category often holds an overview article beside its members, and a list page's table can link the same article twice under different names. If the count is under about 40, run the script again for a second category or list and paste the two files together. A count of `0` means the name is not the real one: use `--categories-of` for a category, or copy a list page's title from its URL. Expect a few extras from a list page even with the filter (`Super Bowl Sunday`, `Super Bowl curse`); that is what the delete-in-your-editor pass is for.
 
 ---
 
@@ -244,23 +255,34 @@ Two thousand abstracts from one category, one paragraph each, is a corpus with a
 
 ```bash
 #!/bin/bash
+# scripts/fetch_corpus.sh — 2,000 arXiv abstracts from one category, 200 per request
 set -e
-mkdir -p data
-curl -sSL "http://export.arxiv.org/api/query?search_query=cat:cs.LG&start=0&max_results=2000&sortBy=submittedDate" -o data/raw.xml
-python3 - <<'EOF'
-import re, html
+CAT="cs.LG"                      # astro-ph, q-bio, physics.pop-ph, math.HO, cs.CL …
+mkdir -p data; : > data/corpus.txt
+for start in 0 200 400 600 800 1000 1200 1400 1600 1800; do
+  for attempt in 1 2 3; do
+    curl -fsS --max-time 60 "https://export.arxiv.org/api/query?search_query=cat:$CAT&start=$start&max_results=200&sortBy=submittedDate&sortOrder=descending" -o data/raw.xml
+    grep -q "<entry>" data/raw.xml && break        # arXiv sometimes returns an empty feed; ask again
+    sleep 5
+  done
+  START=$start python3 - <<'PY'
+import re, html, os
 x = open("data/raw.xml", encoding="utf-8").read()
-titles = re.findall(r"<title>(.*?)</title>", x, re.S)[1:]        # first <title> is the feed's
-abstracts = re.findall(r"<summary>(.*?)</summary>", x, re.S)
-with open("data/corpus.txt", "w", encoding="utf-8") as f:
-    for t, a in zip(titles, abstracts):
-        f.write(html.unescape(t.strip()) + "\n\n" + " ".join(html.unescape(a).split()) + "\n\n")
-EOF
-rm data/raw.xml
+entries = re.findall(r"<entry>(.*?)</entry>", x, re.S)
+with open("data/corpus.txt", "a", encoding="utf-8") as f:
+    for e in entries:
+        t = re.search(r"<title>(.*?)</title>", e, re.S).group(1)
+        a = re.search(r"<summary>(.*?)</summary>", e, re.S).group(1)
+        f.write(" ".join(html.unescape(t).split()) + "\n\n" + " ".join(html.unescape(a).split()) + "\n\n")
+print(len(entries), "abstracts from offset", os.environ["START"])
+PY
+  sleep 3                                          # arXiv asks for a pause between requests
+done
+rm -f data/raw.xml
 wc -c data/corpus.txt
 ```
 
-Swap `cs.LG` for `astro-ph`, `q-bio`, `physics.pop-ph`, `math.HO`. The API asks for a 3-second pause between requests; one request of 2,000 is fine. About 2 MB.
+Change `CAT` for another field. Ten requests of 200 with a pause between them, because one request of 2,000 comes back empty more often than not. About 2 MB.
 
 ---
 
@@ -274,7 +296,8 @@ set -e
 mkdir -p data
 # a rated-standard month; pick one from https://database.lichess.org/ and paste its URL
 URL="https://database.lichess.org/standard/lichess_db_standard_rated_2013-01.pgn.zst"
-curl -sSL "$URL" | zstd -d | head -c 3000000 > data/corpus.txt   # brew install zstd
+# head stops reading at 3 MB and the two tools upstream complain about the closed pipe; that is fine
+(curl -sSL "$URL" 2>/dev/null | zstd -d 2>/dev/null | head -c 3000000 > data/corpus.txt) || true   # brew install zstd
 # PGN games are separated by blank lines already; strip the per-game headers if you only want moves:
 # sed -i.bak '/^\[/d' data/corpus.txt
 wc -c data/corpus.txt
