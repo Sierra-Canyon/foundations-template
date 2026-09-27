@@ -61,23 +61,47 @@ Any set of related articles. Plain text comes from the API's `extracts` endpoint
 
 ```bash
 #!/bin/bash
-# scripts/fetch_corpus.sh — Wikipedia articles listed in data/titles.txt
+# scripts/fetch_corpus.sh — Wikipedia articles listed in data/titles.txt, one per line
 set -e
 mkdir -p data
 : > data/corpus.txt
-while IFS= read -r title; do
+# Wikipedia's API policy wants a User-Agent that says who you are and how to reach you.
+UA="hse-corpus/1.0 (Sierra Canyon HSE student project; contact: YOUR_EMAIL_HERE)"
+n=0
+while IFS= read -r title || [ -n "$title" ]; do
+  title="${title%$'\r'}"                       # drop a Windows line ending if there is one
   [ -z "$title" ] && continue
-  encoded=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$title")
-  curl -sSL "https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&redirects=1&titles=$encoded" \
-    -H "User-Agent: hse-corpus/1.0 (student project)" \
-    | python3 -c "import json,sys; d=json.load(sys.stdin)['query']['pages']; print(next(iter(d.values())).get('extract',''))" >> data/corpus.txt
+  # -f: an HTTP error stops the script with the status code instead of feeding an error page to Python
+  if ! body=$(curl -fsS --max-time 30 -G "https://en.wikipedia.org/w/api.php" \
+        --data-urlencode "action=query" --data-urlencode "prop=extracts" \
+        --data-urlencode "explaintext=1" --data-urlencode "format=json" \
+        --data-urlencode "formatversion=2" --data-urlencode "redirects=1" \
+        --data-urlencode "titles=$title" -H "User-Agent: $UA"); then
+    echo "FAILED on '$title' (curl exit $?). Are you online, and did you set YOUR_EMAIL_HERE?" >&2
+    exit 1
+  fi
+  printf '%s' "$body" | python3 -c '
+import json, sys
+raw = sys.stdin.read()
+try:
+    d = json.loads(raw)
+except json.JSONDecodeError:
+    sys.exit("Wikipedia did not return JSON. First 200 characters of what it sent:\n" + raw[:200])
+page = d["query"]["pages"][0]
+if page.get("missing"):
+    sys.exit("No such article: " + page.get("title", "?"))
+print("== " + page["title"] + " ==\n")
+print(page.get("extract", ""))
+' >> data/corpus.txt
   printf "\n\n" >> data/corpus.txt
+  n=$((n + 1))
   sleep 0.5
 done < data/titles.txt
+echo "$n articles"
 wc -c data/corpus.txt
 ```
 
-Commit `data/titles.txt` (add `!data/titles.txt` to `.gitignore`). Section headings come out as `== Heading ==`; leave them, they are useful anchors for the golden set.
+Put your real email in `UA` (Wikipedia blocks anonymous scripts), and commit `data/titles.txt` (add `!data/titles.txt` to `.gitignore`). Section headings come out as `== Heading ==`; leave them, they are useful anchors for the golden set. If it stops with `FAILED on`, read the line above it: a `403` is the User-Agent, a `000` or a timeout is the network, and `No such article` is a title spelled differently from the page's real name (use the exact title from the article URL, with underscores or spaces, either works).
 
 | Interest | `data/titles.txt` | Rough size |
 |---|---|---|
