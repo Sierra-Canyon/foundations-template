@@ -125,7 +125,9 @@ def check(path):
             "the text between the '*** START OF' and '*** END OF' lines (the awk rule in the corpus guide). "
             "Only use that rule on a Gutenberg file: on anything else it keeps nothing.")
     elif soft:
-        rec("boilerplate stripped", WARN, f"found {soft[:2]} near the start or end",
+        where = head if any(m.lower() in head.lower() for m in soft) else tail
+        line = next((l.strip() for l in where.split("\n") if any(m.lower() in l.lower() for m in soft)), "")
+        rec("boilerplate stripped", WARN, f"found {soft[:2]} near the {'start' if where is head else 'end'}: {line[:90]!r}",
             "Usually a Gutenberg credits paragraph, but the same words occur in ordinary text (film credits, "
             "acknowledgements). Look at the first and last 40 lines; if it is a credit block, drop it in fetch_corpus.sh, "
             "otherwise leave it.")
