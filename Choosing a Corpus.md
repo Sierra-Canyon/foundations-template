@@ -125,17 +125,18 @@ You do not have to type titles by hand. Wikipedia keeps sets of articles in two 
 
 **A category.** Every article ends with a **Categories:** box. Open one article you know belongs (say [Super Bowl I](https://en.wikipedia.org/wiki/Super_Bowl_I)), scroll to the bottom, and click the category that names the *set* rather than the topic: a category of games, seasons, albums or missions, not of the sport or the artist. Its URL is `https://en.wikipedia.org/wiki/Category:<Name>`; the members are under **Pages in category**, and if what you want is inside a subcategory, click through to that one. Some to know: `Category:Super Bowl games` · `Category:NBA Finals` · `Category:FIFA World Cup tournaments` · `Category:World Series` · `Category:Summer Olympic Games` · `Category:Formula One seasons` · `Category:Apollo program missions` · `Category:Space Shuttle missions`.
 
-**A "List of …" page.** Search Wikipedia for *List of* plus your set: [List of Super Bowl champions](https://en.wikipedia.org/wiki/List_of_Super_Bowl_champions), *List of NBA champions*, *List of FIFA World Cup finals*, *List of Apollo missions*, *List of Nintendo Switch games*, *List of Studio Ghibli works*, *List of Marvel Cinematic Universe films*. The table on a list page links every member article, and a list page links to a lot else besides (teams, stadiums, players), so the script takes a pattern and keeps only the titles that match it. Look at the table first, note what the member titles have in common (`Super Bowl XLII`, `2004 NBA Finals`, `Apollo 11`), and write that as the pattern.
+**A "List of …" page.** Search Wikipedia for *List of* plus your set: [List of Super Bowl champions](https://en.wikipedia.org/wiki/List_of_Super_Bowl_champions), *List of NBA champions*, *List of FIFA World Cup finals*, *List of Apollo missions*, *List of Nintendo Switch games*, *List of Studio Ghibli works*, *List of Marvel Cinematic Universe films*. The table on a list page links every member article, and a list page links to a lot else besides (teams, stadiums, players), so the script takes a second argument: words that every title you want contains. Look at the table first and find what the member titles share: `Super Bowl XLII`, `Super Bowl LIII` all contain `Super Bowl`; `2004 NBA Finals`, `2016 NBA Finals` all contain `NBA Finals`; `Apollo 11`, `Apollo 13` all contain `Apollo`. That shared piece is the filter. Leave it off to get every link on the page and delete the extras in your editor.
 
 ```bash
 #!/bin/bash
 # scripts/make_titles.sh — write data/titles.txt from a Wikipedia category or a "List of …" page
 #   bash scripts/make_titles.sh "Category:Super Bowl games"
-#   bash scripts/make_titles.sh "List of Super Bowl champions" '^Super Bowl [IVXLC]+$'
-#   bash scripts/make_titles.sh "List of Apollo missions" '^Apollo [0-9]+$'
+#   bash scripts/make_titles.sh "List of Super Bowl champions" "Super Bowl"
+#   bash scripts/make_titles.sh "List of NBA champions" "NBA Finals"
+#   bash scripts/make_titles.sh "List of Apollo missions" "Apollo"
 set -e
-PAGE="$1"; PATTERN="${2:-.}"
-[ -z "$PAGE" ] && { echo "usage: bash scripts/make_titles.sh 'Category:Name' | 'List of …' [regex]" >&2; exit 1; }
+PAGE="$1"; KEEP="$2"    # KEEP: keep only titles containing these words (plain text, not a pattern); blank keeps all
+[ -z "$PAGE" ] && { echo "usage: bash scripts/make_titles.sh 'Category:Name' | 'List of …' ['words the titles contain']" >&2; exit 1; }
 UA="hse-corpus/1.0 (Sierra Canyon HSE student project; contact: YOUR_EMAIL_HERE)"
 API="https://en.wikipedia.org/w/api.php"
 CURL="curl -fsS --max-time 30 --retry 4 --retry-delay 3 --retry-all-errors -G $API -H User-Agent:$UA"
@@ -154,16 +155,21 @@ case "$PAGE" in
       [ -z "$cont" ] && break
     done ;;
   *)
-    # every article the list page links to, in page order, then filtered by the pattern
+    # every article the list page links to, in page order, keeping only titles that contain $KEEP
     $CURL --data-urlencode "action=parse" --data-urlencode "page=$PAGE" --data-urlencode "prop=links" \
       --data-urlencode "format=json" --data-urlencode "formatversion=2" \
-    | python3 -c 'import json,sys; [print(l["title"]) for l in json.load(sys.stdin)["parse"]["links"] if l["ns"]==0 and l.get("exists")]' \
-    | grep -E "$PATTERN" | awk '!seen[$0]++' >> data/titles.txt ;;
+    | python3 -c 'import json,sys
+keep = sys.argv[1].lower()
+seen = set()
+for l in json.load(sys.stdin)["parse"]["links"]:
+    t = l["title"]
+    if l["ns"] == 0 and l.get("exists") and keep in t.lower() and t not in seen:
+        seen.add(t); print(t)' "$KEEP" >> data/titles.txt ;;
 esac
 wc -l data/titles.txt
 ```
 
-For a category, `cmtype=page` and `cmnamespace=0` mean only articles come out, no subcategories, files or talk pages. For a list page, `exists` drops red links and the pattern does the rest; run it without a pattern once to see everything the page links to, then tighten. Either way, open `data/titles.txt` afterwards and delete what does not belong: a category often holds an overview article beside its members, and a list page's table can link the same article twice under different names. If the count is under about 40, run the script again for a second category or list and paste the two files together. A count of `0` means the name is spelled differently from the real page: copy it from the article URL.
+For a category, `cmtype=page` and `cmnamespace=0` mean only articles come out, no subcategories, files or talk pages. For a list page, red links are dropped and the filter words do the rest; run it with no second argument once to see everything the page links to, then run it again with the words that the titles you want share. Capitalization does not matter. Either way, open `data/titles.txt` afterwards and delete what does not belong: a category often holds an overview article beside its members, and a list page's table can link the same article twice under different names. If the count is under about 40, run the script again for a second category or list and paste the two files together. A count of `0` means the name is spelled differently from the real page: copy it from the article URL.
 
 ---
 
