@@ -39,7 +39,7 @@ awk '/\*\*\* START OF/{flag=1; next} /\*\*\* END OF/{flag=0} flag' data/raw.txt 
 rm data/raw.txt
 ```
 
-To glue two books, fetch each to `data/raw1.txt`, `data/raw2.txt`, apply the `awk` to each, and `cat` them into `corpus.txt`. Older files carry a "Produced by …" credit *after* the START marker; if the checker flags it, add `sed '1,/^$/d'` to drop the first paragraph.
+**The `awk` rule is for Gutenberg files only.** It keeps what sits between the two marker lines; run it on a file with no markers (Wikipedia, RFCs, docs) and it keeps nothing, and the checker will tell you the corpus is empty. To glue two books, fetch each to `data/raw1.txt`, `data/raw2.txt`, apply the `awk` to each, and `cat` them into `corpus.txt`. Older files carry a "Produced by …" credit *after* the START marker; if the checker flags it, add `sed '1,/^$/d'` to drop the first paragraph.
 
 | Interest | Books (IDs to confirm on the site) | Rough size |
 |---|---|---|
@@ -72,7 +72,8 @@ while IFS= read -r title || [ -n "$title" ]; do
   title="${title%$'\r'}"                       # drop a Windows line ending if there is one
   [ -z "$title" ] && continue
   # -f: an HTTP error stops the script with the status code instead of feeding an error page to Python
-  if ! body=$(curl -fsS --max-time 30 -G "https://en.wikipedia.org/w/api.php" \
+  # --retry handles the occasional 429 (too many requests) by waiting and trying again
+  if ! body=$(curl -fsS --max-time 30 --retry 4 --retry-delay 3 --retry-all-errors -G "https://en.wikipedia.org/w/api.php" \
         --data-urlencode "action=query" --data-urlencode "prop=extracts" \
         --data-urlencode "explaintext=1" --data-urlencode "format=json" \
         --data-urlencode "formatversion=2" --data-urlencode "redirects=1" \
@@ -95,7 +96,7 @@ print(page.get("extract", ""))
 ' >> data/corpus.txt
   printf "\n\n" >> data/corpus.txt
   n=$((n + 1))
-  sleep 0.5
+  sleep 1
 done < data/titles.txt
 echo "$n articles"
 wc -c data/corpus.txt

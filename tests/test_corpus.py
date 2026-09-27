@@ -50,11 +50,16 @@ def test_big_enough_for_a_gpt(text):
     assert len(text) >= cc.MIN_CHARS_WARN
 
 
+def test_not_empty(text):
+    """A file with nothing in it passes every regex and fails every assignment."""
+    assert len(text) > 0, "data/corpus.txt is empty; the fetch or the stripping rule produced nothing"
+
+
 def test_no_license_boilerplate(text):
     """Otherwise every search for 'license' or 'Gutenberg' returns the header, and it embeds as a chunk."""
     n = len(text)
     head, tail = text[: max(3000, n // 50)].lower(), text[-max(3000, n // 50):].lower()
-    for m in cc.GUTENBERG_MARKERS:
+    for m in cc.GUTENBERG_MARKERS:          # the unmistakable ones; credit phrases are only a warning in the checker
         assert m.lower() not in head and m.lower() not in tail, f"found {m!r} at the top or bottom"
 
 

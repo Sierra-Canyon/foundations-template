@@ -36,7 +36,8 @@ MIN_STOPWORD_RATE_WARN = 0.03 # "the of and to a in" share of tokens; English pr
 
 STOPWORDS = {"the", "of", "and", "to", "a", "in"}
 GUTENBERG_MARKERS = ("*** START OF", "*** END OF", "PROJECT GUTENBERG", "GUTENBERG EBOOK",
-                     "www.gutenberg.org", "Produced by", "Online Distributed Proofreading")
+                     "www.gutenberg.org")                      # unmistakable: a FAIL
+CREDIT_MARKERS = ("Produced by", "Online Distributed Proofreading", "Transcriber's Note")  # a WARN: appears in real text too
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 PHONE_RE = re.compile(r"\(?\b\d{3}\)?[-. ]\d{3}[-. ]\d{4}\b")
 
@@ -94,6 +95,12 @@ def check(path):
 
     # 3. size
     n = len(text)
+    if n == 0:
+        rec("size", FAIL, "0 characters: the file is empty",
+            "Whatever wrote it produced nothing. The usual cause is a Gutenberg-style awk rule "
+            "('*** START OF' … '*** END OF') run on a file that has no such markers, such as a Wikipedia "
+            "corpus, which then keeps nothing. Re-run scripts/fetch_corpus.sh, and only strip what your source actually has.")
+        return results
     if n < MIN_CHARS_FAIL:
         rec("size", FAIL, f"{n:,} characters",
             f"Under {MIN_CHARS_FAIL:,}. Add more of the same source (the sequel, the next volume, "
@@ -111,10 +118,17 @@ def check(path):
     # 4. Gutenberg (or any) boilerplate still attached
     head, tail = text[: max(3000, n // 50)], text[-max(3000, n // 50):]
     hits = [m for m in GUTENBERG_MARKERS if m.lower() in head.lower() or m.lower() in tail.lower()]
+    soft = [m for m in CREDIT_MARKERS if m.lower() in head.lower() or m.lower() in tail.lower()]
     if hits:
         rec("boilerplate stripped", FAIL, f"found {hits[:3]} in the first or last 2% of the file",
-            "Cut everything up to and including the '*** START OF' line and everything from '*** END OF' on. "
-            "Do it in fetch_corpus.sh so the fetch is repeatable, not by hand in an editor.")
+            "This is a Project Gutenberg download with its license wrapper still on. In fetch_corpus.sh, keep only "
+            "the text between the '*** START OF' and '*** END OF' lines (the awk rule in the corpus guide). "
+            "Only use that rule on a Gutenberg file: on anything else it keeps nothing.")
+    elif soft:
+        rec("boilerplate stripped", WARN, f"found {soft[:2]} near the start or end",
+            "Usually a Gutenberg credits paragraph, but the same words occur in ordinary text (film credits, "
+            "acknowledgements). Look at the first and last 40 lines; if it is a credit block, drop it in fetch_corpus.sh, "
+            "otherwise leave it.")
     else:
         rec("boilerplate stripped", PASS, "no license header or footer found")
 
