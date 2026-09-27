@@ -194,21 +194,45 @@ wc -c data/corpus.txt
 
 The `sed` line matters: without it the checker's duplicate-line test fails on the page headers. About 2.5 MB.
 
-**Node.js API docs (MIT).** One Markdown file per module; the rest of this course's agent is written in TypeScript, so this is a corpus you will actually query for real:
+**Node.js API docs (MIT).** One Markdown file per module; the rest of this course's agent is written in TypeScript, so this is a corpus you will actually query for real. A sparse clone fetches only the docs folder, a few seconds instead of the whole repository:
 
 ```bash
-git clone --depth 1 https://github.com/nodejs/node.git /tmp/node
+git clone --quiet --depth 1 --filter=blob:none --sparse https://github.com/nodejs/node.git /tmp/node
+git -C /tmp/node sparse-checkout set --no-cone 2>/dev/null; git -C /tmp/node sparse-checkout set doc/api
 cat /tmp/node/doc/api/*.md > data/corpus.txt
 rm -rf /tmp/node
 ```
 
-About 4 MB. Markdown headings and code fences survive; that is fine.
+About 4.7 MB. Expect the checker to warn about duplicate lines: every code example starts with the same `import` lines, which puts repeats near 25%. That is real and harmless for search; if you go Track B, know that a character model will learn to write `import { Buffer } from 'node:buffer';` very well.
 
-**The Rust Book (MIT/Apache).** `git clone --depth 1 https://github.com/rust-lang/book.git /tmp/book && cat /tmp/book/src/*.md > data/corpus.txt`. About 1.5 MB of unusually well-written prose.
+**The Rust Book (MIT/Apache).** About 1.2 MB of unusually well-written prose:
 
-**Python docs (PSF license).** `git clone --depth 1 https://github.com/python/cpython.git /tmp/cpython && cat /tmp/cpython/Doc/library/*.rst > data/corpus.txt`. About 10 MB; take `Doc/tutorial/*.rst` plus twenty modules you use instead.
+```bash
+git clone --quiet --depth 1 --filter=blob:none --sparse https://github.com/rust-lang/book.git /tmp/book
+git -C /tmp/book sparse-checkout set --no-cone 2>/dev/null; git -C /tmp/book sparse-checkout set src
+cat /tmp/book/src/*.md > data/corpus.txt
+rm -rf /tmp/book
+```
 
-**Git's own docs (GPL-2).** `git clone --depth 1 https://github.com/git/git.git /tmp/git && cat /tmp/git/Documentation/git-*.txt > data/corpus.txt`. Every man page you have ever half-read, about 2 MB.
+**Python docs (PSF license).** The tutorial on its own is 270 K, too small; the tutorial plus the HOWTO guides is 1.1 MB and reads as one voice:
+
+```bash
+git clone --quiet --depth 1 --filter=blob:none --sparse https://github.com/python/cpython.git /tmp/cpython
+git -C /tmp/cpython sparse-checkout set --no-cone 2>/dev/null; git -C /tmp/cpython sparse-checkout set Doc/tutorial Doc/howto
+cat /tmp/cpython/Doc/tutorial/*.rst /tmp/cpython/Doc/howto/*.rst > data/corpus.txt
+rm -rf /tmp/cpython
+```
+
+`Doc/library/*.rst` is another 7 MB if you want the module reference too; it is drier and more repetitive.
+
+**Git's own docs (GPL-2).** Every man page you have ever half-read, about 1.5 MB. The pages are AsciiDoc (`.adoc`), not `.txt`:
+
+```bash
+git clone --quiet --depth 1 --filter=blob:none --sparse https://github.com/git/git.git /tmp/git
+git -C /tmp/git sparse-checkout set --no-cone 2>/dev/null; git -C /tmp/git sparse-checkout set Documentation
+cat /tmp/git/Documentation/git-*.adoc > data/corpus.txt
+rm -rf /tmp/git
+```
 
 **Your own code.** Docstrings and READMEs from repositories you wrote. Allowed if they are yours, and the most personal corpus available; usually too small on its own.
 

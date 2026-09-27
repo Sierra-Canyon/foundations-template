@@ -38,7 +38,7 @@ STOPWORDS = {"the", "of", "and", "to", "a", "in"}
 GUTENBERG_MARKERS = ("*** START OF", "*** END OF", "PROJECT GUTENBERG", "GUTENBERG EBOOK",
                      "www.gutenberg.org")                      # unmistakable: a FAIL
 CREDIT_MARKERS = ("Produced by", "Online Distributed Proofreading", "Transcriber's Note")  # a WARN: appears in real text too
-EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+EMAIL_RE = re.compile(r"[\w.+-]+@(?!example\.)[\w-]+\.[\w.-]+")   # example.com addresses are documentation, not people
 PHONE_RE = re.compile(r"\(?\b\d{3}\)?[-. ]\d{3}[-. ]\d{4}\b")
 
 
@@ -118,15 +118,15 @@ def check(path):
     # 4. Gutenberg (or any) boilerplate still attached
     head, tail = text[: max(3000, n // 50)], text[-max(3000, n // 50):]
     hits = [m for m in GUTENBERG_MARKERS if m.lower() in head.lower() or m.lower() in tail.lower()]
-    soft = [m for m in CREDIT_MARKERS if m.lower() in head.lower() or m.lower() in tail.lower()]
+    soft = [m for m in CREDIT_MARKERS if m in head or m in tail]          # case-sensitive: "produced by" in prose is not a credit
     if hits:
         rec("boilerplate stripped", FAIL, f"found {hits[:3]} in the first or last 2% of the file",
             "This is a Project Gutenberg download with its license wrapper still on. In fetch_corpus.sh, keep only "
             "the text between the '*** START OF' and '*** END OF' lines (the awk rule in the corpus guide). "
             "Only use that rule on a Gutenberg file: on anything else it keeps nothing.")
     elif soft:
-        where = head if any(m.lower() in head.lower() for m in soft) else tail
-        line = next((l.strip() for l in where.split("\n") if any(m.lower() in l.lower() for m in soft)), "")
+        where = head if any(m in head for m in soft) else tail
+        line = next((l.strip() for l in where.split("\n") if any(m in l for m in soft)), "")
         rec("boilerplate stripped", WARN, f"found {soft[:2]} near the {'start' if where is head else 'end'}: {line[:90]!r}",
             "Usually a Gutenberg credits paragraph, but the same words occur in ordinary text (film credits, "
             "acknowledgements). Look at the first and last 40 lines; if it is a credit block, drop it in fetch_corpus.sh, "
