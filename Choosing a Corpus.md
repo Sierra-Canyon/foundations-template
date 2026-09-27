@@ -198,7 +198,7 @@ The `sed` line matters: without it the checker's duplicate-line test fails on th
 
 ```bash
 git clone --quiet --depth 1 --filter=blob:none --sparse https://github.com/nodejs/node.git /tmp/node
-git -C /tmp/node sparse-checkout set --no-cone 2>/dev/null; git -C /tmp/node sparse-checkout set doc/api
+git -C /tmp/node sparse-checkout set doc/api 2>/dev/null
 cat /tmp/node/doc/api/*.md > data/corpus.txt
 rm -rf /tmp/node
 ```
@@ -209,7 +209,7 @@ About 4.7 MB. Expect the checker to warn about duplicate lines: every code examp
 
 ```bash
 git clone --quiet --depth 1 --filter=blob:none --sparse https://github.com/rust-lang/book.git /tmp/book
-git -C /tmp/book sparse-checkout set --no-cone 2>/dev/null; git -C /tmp/book sparse-checkout set src
+git -C /tmp/book sparse-checkout set src 2>/dev/null
 cat /tmp/book/src/*.md > data/corpus.txt
 rm -rf /tmp/book
 ```
@@ -218,7 +218,7 @@ rm -rf /tmp/book
 
 ```bash
 git clone --quiet --depth 1 --filter=blob:none --sparse https://github.com/python/cpython.git /tmp/cpython
-git -C /tmp/cpython sparse-checkout set --no-cone 2>/dev/null; git -C /tmp/cpython sparse-checkout set Doc/tutorial Doc/howto
+git -C /tmp/cpython sparse-checkout set Doc/tutorial Doc/howto 2>/dev/null
 cat /tmp/cpython/Doc/tutorial/*.rst /tmp/cpython/Doc/howto/*.rst > data/corpus.txt
 rm -rf /tmp/cpython
 ```
@@ -229,7 +229,7 @@ rm -rf /tmp/cpython
 
 ```bash
 git clone --quiet --depth 1 --filter=blob:none --sparse https://github.com/git/git.git /tmp/git
-git -C /tmp/git sparse-checkout set --no-cone 2>/dev/null; git -C /tmp/git sparse-checkout set Documentation
+git -C /tmp/git sparse-checkout set Documentation 2>/dev/null
 cat /tmp/git/Documentation/git-*.adoc > data/corpus.txt
 rm -rf /tmp/git
 ```
