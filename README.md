@@ -62,7 +62,9 @@ uses whatever is first on your PATH and will not find it. The symptom is
 | `failures/` | **A10.** `CATALOG.md` and `traces/`. |
 | `evals/` | **A11.** Labs, judge labels, `JUDGE_REPORT.md`. |
 | `SELF_Q1.md` | **A11b.** You create this one at the top of the repo. |
-| `data/` | Your corpus. Git-ignored on purpose. |
+| `data/` | **A05b.** Your corpus. Git-ignored on purpose, except `SOURCE.md` and `titles.txt`. |
+| `Choosing a Corpus.md` | **A05b.** Sources by subject, each with the command that fetches it. Read it before you pick. |
+| `scripts/check_corpus.py` | **A05b.** The corpus checker; `uv run pytest tests/` runs the same checks. |
 | `logs/LOG_TEMPLATE.md` | The shape of a log entry. The entries themselves live in your log repo. |
 | `scripts/check_env.py` | The environment check. Re-run it whenever something breaks. |
 | `scripts/install_secret_guard.sh` | Pre-commit hook that refuses staged keys. |
