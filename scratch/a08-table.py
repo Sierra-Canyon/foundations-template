@@ -2,7 +2,7 @@
 # Run from the repo root:  uv run python scratch/a08-table.py
 #
 # What it does: reads the five runs in transformer/head_runs.txt (written by X2's for loop)
-# and prints the X2 table for HEAD_RUN.md.
+# and prints the X2 table for the "## Extension X2" section of evidence/A08.md.
 #
 # Run it once with the two slots below empty: it prints every token with its position.
 # Fill the slots from that list, run it again, and it prints the table, the summary line,

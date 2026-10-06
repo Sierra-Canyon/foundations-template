@@ -2,10 +2,10 @@
 # Run from the repo root:  uv run python failures/deepdive.py --option A        (A, B, C or D)
 #
 # What it does: one option, one category. Each option is one function below, with a header comment that
-# says in words what its NUMBER, BASELINE and COMPARISON are. Each prints those three lines for CATALOG.md,
+# says in words what its NUMBER, BASELINE and COMPARISON are. Each prints those three lines for evidence/A10.md,
 # then the detail behind them, and saves every new answer in failures/deepdive_<option>.json so you can
 # quote it. "right" is decided by a rule here: an answer is right when the `answer` field of questions.jsonl
-# appears in it, ignoring case. Read the detail, overrule the rule by hand in CATALOG.md where it is wrong,
+# appears in it, ignoring case. Read the detail, overrule the rule by hand in evidence/A10.md where it is wrong,
 # and say that you did. There is nothing to edit in this file.
 import json, math, os, sys, urllib.request
 from pathlib import Path
@@ -58,12 +58,12 @@ def count_right(runs, q):
             n += 1
     return n
 
-# In: nothing (reads failures/marks.md).  Out: {id: "rfhfo"}, your five API letters per question.
+# In: nothing (reads evidence/A10.md).  Out: {id: "rfhfo"}, your five API letters per question, from the rows under ## Marks.
 def api_marks():
-    """ your API marks from failures/marks.md """
+    """ your API marks from the ## Marks table in evidence/A10.md """
     rows = {}
     inside = False                           # True while we are under the ## Marks heading
-    for line in Path("failures/marks.md").read_text(encoding="utf-8").splitlines():
+    for line in Path("evidence/A10.md").read_text(encoding="utf-8").splitlines():
         if line.startswith("## "):
             inside = line.strip() == "## Marks"
             continue
@@ -72,8 +72,9 @@ def api_marks():
             for c in line.strip().strip("|").split("|"):     # drop the outer | characters, split on the inner ones
                 cells.append(c.strip())
             rows[cells[0]] = cells[1]        # the id and the API letters
+    assert rows, "no rows under ## Marks in evidence/A10.md; run failures/mark.py first (Step 4)"
     for m in rows.values():
-        assert len(m) == 5 and not set(m) - set("rfho"), "fill failures/marks.md first (Step 5)"   # five letters, each one of r f h o
+        assert len(m) == 5 and not set(m) - set("rfho"), "fill the marks in evidence/A10.md first (Step 4)"   # five letters, each one of r f h o
     return rows
 
 # In: a chunk's text and a quote.  Out: True when the quote is in the chunk, word for word.

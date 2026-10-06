@@ -1,10 +1,11 @@
 # scratch/a09-mark.py
 # Run from the repo root:  uv run python scratch/a09-mark.py
 #
-# What it does: reads sampling/table.txt (what "lab.py table" printed) and sampling/RESULTS.md, and prints
-# the nine rows of the X3 table with the "distinct of 5" and "predicted distinct" columns filled.
-# You fill "usable of 5" by reading sampling/table.txt. Run it again after the usable column is filled in
-# RESULTS.md and it also prints, per prompt, the lowest temperature at which usable fell below 5.
+# What it does: reads sampling/table.txt (what "lab.py table" printed) and evidence/A09.md (the prediction
+# table under "## Prediction"), and prints the nine rows of the X3 table with the "distinct of 5" and
+# "predicted distinct" columns filled. You paste that table under "## Extension X3" in evidence/A09.md and
+# fill "usable of 5" by reading sampling/table.txt. Run it again after the usable column is filled and it
+# also prints, per prompt, the lowest temperature at which usable fell below 5.
 #
 # There is nothing to edit in this file.
 from pathlib import Path
@@ -24,14 +25,15 @@ for line in lines:
         })
 assert len(blocks) == 9, f"{len(blocks)} '## prompt' headings in sampling/table.txt; the table run prints 9 (3 prompts x 3 temperatures)"
 
-# ------------------------------------------------------------ read RESULTS.md, if it exists yet
-results = Path("sampling/RESULTS.md")
-if results.exists():
-    text = results.read_text(encoding="utf-8")
+# ------------------------------------------------------------ read evidence/A09.md, if it is there
+evidence = Path("evidence/A09.md")
+if evidence.exists():
+    text = evidence.read_text(encoding="utf-8")
 else:
-    text = ""
+    text = ""                                 # no file: every prediction reads ? and no usable cell is found
 
-# In: a heading such as "## Table".  Out: a list of rows, each row a list of its cells as strings, from the table under that heading.
+# In: the start of a heading, such as "## Prediction".  Out: a list of rows, each row a list of its cells as strings,
+# from the table under the "## " heading that starts with those words (the rest of the heading can say anything).
 def table_after(heading):
     """ the cells of every '| ... |' row under a '## heading', up to the next '## ' """
     rows = []
@@ -57,12 +59,12 @@ for cells in table_after("## Prediction"):
             cell = last_three[j]
             if cell.isdigit():                # a plain number
                 predicted[(int(cells[0]), temps[j])] = cell
-            else:                             # anything else (empty, <n>, a word): shown as ?
+            else:                             # anything else (empty, the unfilled <   > cell, a word): shown as ?
                 predicted[(int(cells[0]), temps[j])] = "?"
 
-# the usable counts you filled in: {(prompt number, T): count}, from the rows under ## Table
+# the usable counts you filled in: {(prompt number, T): count}, from the rows under ## Extension X3
 usable = {}
-for cells in table_after("## Table"):
+for cells in table_after("## Extension X3"):
     if len(cells) >= 4 and cells[0] in ("1", "2", "3") and cells[3].isdigit():
         usable[(int(cells[0]), float(cells[1]))] = int(cells[3])
 
@@ -78,7 +80,7 @@ for b in blocks:
     if (b["prompt"], b["T"]) not in predicted:
         missing += 1
 if missing:
-    print(f"\n{missing} predicted cells read '?': the Prediction table in sampling/RESULTS.md has no number there yet")
+    print(f"\n{missing} predicted cells read '?': the Prediction table in evidence/A09.md has no number there yet")
 
 print("\nprompts, as the table run cut them:")
 tails = {}                                    # {prompt number: its tail}; the same prompt appears in three blocks, so this keeps one
@@ -104,6 +106,6 @@ if len(usable) == 9:
         total_distinct += b["distinct"]
     print(f"  usable in all: {sum(usable.values())} of 45; distinct in all: {total_distinct} of 45")
 elif usable:
-    print(f"\n{len(usable)} of 9 usable cells filled under ## Table; fill the rest and run again for the where-it-got-worse lines")
+    print(f"\n{len(usable)} of 9 usable cells filled under ## Extension X3; fill the rest and run again for the where-it-got-worse lines")
 else:
-    print("\nnext: paste the table above into sampling/RESULTS.md under ## Table, fill usable of 5 by reading sampling/table.txt, run this again")
+    print("\nnext: paste the table above into evidence/A09.md under ## Extension X3, fill usable of 5 by reading sampling/table.txt, run this again")
